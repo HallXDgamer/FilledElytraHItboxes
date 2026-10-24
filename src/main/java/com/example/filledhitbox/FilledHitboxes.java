@@ -1,10 +1,10 @@
-package com.example.filledhitbox.client;
+package com.example.filledhitbox;
 
-import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.api.ModInitializer;
 
-public class FilledHitboxClient implements ClientModInitializer {
-	@Override
-	public void onInitializeClient() {
-		// This entrypoint is suitable for setting up client-specific logic, such as rendering.
-	}
+public class FilledHitbox implements ModInitializer {
+    @Override
+    public void onInitialize() {
+        // Is mod ko main side pe kuch nahi karna
+    }
 }
