@@ -19,7 +19,7 @@
 			"com.example.filledhitbox.FilledHitbox"
 		],
 		"client": [
-			"com.example.filledhitbox.client.FilledHitboxes"
+			"com.example.filledhitbox.client.FilledHitboxClient"
 		]
 	},
 	"mixins": [
