@@ -21,7 +21,7 @@ import org.joml.Vector4f;
 import org.lwjgl.system.MemoryUtil;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MappableRingBuffer;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.RenderType;
@@ -35,16 +35,20 @@ import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 
 /**
- * Jab player elytra se glide kare, uska hitbox colour se filled dikhata hai.
+ * Elytra glide ke time player ka hitbox colour se filled dikhata hai.
+ * Colour upar constants mein set hai.
  * Minecraft 1.21.11, Mojang mappings.
  */
 public class FilledHitboxClient implements ClientModInitializer {
 
-	// Colour settings (0.0 - 1.0)
+	// Colour (0.0 - 1.0), yahan badal sakte ho
 	private static final float RED = 1.0f;
 	private static final float GREEN = 0.2f;
 	private static final float BLUE = 0.2f;
 	private static final float ALPHA = 0.35f;
+
+	// true karoge to apna khud ka hitbox bhi dikhega
+	private static final boolean SHOW_SELF = false;
 
 	private static final RenderPipeline FILLED_BOX = RenderPipelines.register(
 			RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
@@ -67,36 +71,44 @@ public class FilledHitboxClient implements ClientModInitializer {
 
 	private void onRender(WorldRenderContext context) {
 		Minecraft mc = Minecraft.getInstance();
-		LocalPlayer player = mc.player;
-
-		// Sirf tab chale jab player elytra se glide kar raha ho
-		if (player == null || !player.isFallFlying()) return;
+		if (mc.level == null || mc.player == null) return;
 
 		float delta = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
-
-		// Smooth position (frame ke beech interpolation)
-		double dx = Mth.lerp(delta, player.xOld, player.getX()) - player.getX();
-		double dy = Mth.lerp(delta, player.yOld, player.getY()) - player.getY();
-		double dz = Mth.lerp(delta, player.zOld, player.getZ()) - player.getZ();
-
-		// Player ka asli (gliding pose wala) hitbox
-		AABB box = player.getBoundingBox().move(dx, dy, dz);
 
 		PoseStack matrices = context.matrices();
 		Vec3 camera = context.worldState().cameraRenderState.pos;
 
-		matrices.pushPose();
-		matrices.translate(-camera.x, -camera.y, -camera.z);
+		buffer = null;
 
-		buffer = new BufferBuilder(ALLOCATOR, FILLED_BOX.getVertexFormatMode(), FILLED_BOX.getVertexFormat());
-		addFilledBox(matrices.last().pose(), buffer,
-				(float) box.minX, (float) box.minY, (float) box.minZ,
-				(float) box.maxX, (float) box.maxY, (float) box.maxZ,
-				RED, GREEN, BLUE, ALPHA);
+		for (AbstractClientPlayer target : mc.level.players()) {
+			if (target == mc.player && !SHOW_SELF) continue;
+			if (!target.isFallFlying()) continue;
 
-		matrices.popPose();
+			// Smooth position (frame ke beech interpolation)
+			double dx = Mth.lerp(delta, target.xOld, target.getX()) - target.getX();
+			double dy = Mth.lerp(delta, target.yOld, target.getY()) - target.getY();
+			double dz = Mth.lerp(delta, target.zOld, target.getZ()) - target.getZ();
 
-		draw(mc);
+			// Player ka asli (gliding pose wala) hitbox
+			AABB box = target.getBoundingBox().move(dx, dy, dz);
+
+			if (buffer == null) {
+				buffer = new BufferBuilder(ALLOCATOR, FILLED_BOX.getVertexFormatMode(), FILLED_BOX.getVertexFormat());
+			}
+
+			matrices.pushPose();
+			matrices.translate(-camera.x, -camera.y, -camera.z);
+			addFilledBox(matrices.last().pose(), buffer,
+					(float) box.minX, (float) box.minY, (float) box.minZ,
+					(float) box.maxX, (float) box.maxY, (float) box.maxZ,
+					RED, GREEN, BLUE, ALPHA);
+			matrices.popPose();
+		}
+
+		// Koi bhi player glide nahi kar raha to kuch draw nahi hota
+		if (buffer != null) {
+			draw(mc);
+		}
 	}
 
 	private void addFilledBox(Matrix4fc m, BufferBuilder b,
